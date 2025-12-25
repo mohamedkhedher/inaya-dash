@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(DOCTOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notes     Note[]
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+}
+
+model Patient {
+  id             String   @id @default(cuid())
+  patientCode    String   @unique
+  fullName       String
+  nationality    String?
+  passportNumber String?
+  dateOfBirth    DateTime?
+  gender         String?
+  phone          String?
+  email          String?
+  address        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  cases          Case[]
+}
+
+model Case {
+  id            String     @id @default(cuid())
+  patientId     String
+  patient       Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  aiPreAnalysis String?    @db.Text
+  status        CaseStatus @default(PENDING)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  documents     Document[]
+  notes         Note[]
+}
+
+enum CaseStatus {
+  PENDING
+  IN_PROGRESS
+  ANALYZED
+  COMPLETED
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  caseId       String
+  case         Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileType     String
+  googleDriveId String?
+  googleDriveUrl String?
+  extractedText String?  @db.Text
+  createdAt    DateTime @default(now())
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Counter {
+  id    String @id @default("patient_counter")
+  value Int    @default(0)
+}
