@@ -41,7 +41,9 @@ interface Document {
   id: string;
   fileName: string;
   fileType: string;
+  googleDriveId: string | null;
   googleDriveUrl: string | null;
+  extractedText: string | null;
   createdAt: string;
 }
 

@@ -80,6 +80,8 @@ export default function NewPatientPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
   const isExistingPatient = selectedPatient !== null;
 
@@ -167,8 +169,56 @@ export default function NewPatientPage() {
     }
   };
 
+  // Convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Extract text from medical document images
+  const extractTextFromImage = async (file: File, index: number) => {
+    if (!file.type.startsWith("image/")) return;
+
+    try {
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, status: "uploading" } : f))
+      );
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/ai/extract-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (result.success && result.text) {
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === index ? { ...f, extractedText: result.text, status: "done" } : f
+          )
+        );
+      } else {
+        setFiles((prev) =>
+          prev.map((f, i) => (i === index ? { ...f, status: "pending" } : f))
+        );
+      }
+    } catch (error) {
+      console.error("Text extraction error:", error);
+      setFiles((prev) =>
+        prev.map((f, i) => (i === index ? { ...f, status: "pending" } : f))
+      );
+    }
+  };
+
   // Handle file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || []);
     const uploadedFiles: UploadedFile[] = newFiles.map((file) => ({
       file,
@@ -177,7 +227,134 @@ export default function NewPatientPage() {
         : undefined,
       status: "pending" as const,
     }));
-    setFiles((prev) => [...prev, ...uploadedFiles]);
+    
+    const updatedFiles = [...files, ...uploadedFiles];
+    setFiles(updatedFiles);
+
+    // Automatically extract text from image files
+    newFiles.forEach((file, index) => {
+      if (file.type.startsWith("image/")) {
+        const actualIndex = files.length + index;
+        extractTextFromImage(file, actualIndex);
+      }
+    });
+  };
+
+  // Trigger comprehensive AI analysis
+  const handleAnalyze = async () => {
+    if (files.length === 0) {
+      toast({
+        title: "Aucun document",
+        description: "Veuillez d'abord ajouter des documents à analyser",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAiAnalysis(null);
+
+    try {
+      // Convert image files to base64
+      const imageFiles = files.filter((f) => f.file.type.startsWith("image/"));
+      const base64Images: string[] = [];
+
+      for (const uploadedFile of imageFiles) {
+        const base64 = await fileToBase64(uploadedFile.file);
+        base64Images.push(base64);
+      }
+
+      // Collect extracted text
+      const texts = files
+        .filter((f) => f.extractedText && f.extractedText.trim())
+        .map((f) => f.extractedText!);
+
+      // Calculate age if dateOfBirth is available
+      let age: number | undefined;
+      if (form.dateOfBirth) {
+        const birthDate = new Date(form.dateOfBirth);
+        const today = new Date();
+        age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+      }
+
+      // Call analysis API (we'll need to create a case first or use a temporary endpoint)
+      // For now, we'll create a temporary case for analysis
+      let caseId: string | null = null;
+
+      if (selectedPatient) {
+        // Create a temporary case for analysis
+        const caseRes = await fetch("/api/cases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patientId: selectedPatient.id }),
+        });
+
+        if (caseRes.ok) {
+          const newCase = await caseRes.json();
+          caseId = newCase.id;
+        }
+      }
+
+      if (!caseId) {
+        // If no patient selected, we can't create a case
+        // So we'll use a direct analysis endpoint
+        const analysisRes = await fetch("/api/ai/analyze-direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            texts: texts.length > 0 ? texts : undefined,
+            images: base64Images.length > 0 ? base64Images : undefined,
+            patientInfo: {
+              fullName: form.fullName,
+              age,
+              gender: form.gender || undefined,
+            },
+          }),
+        });
+
+        if (analysisRes.ok) {
+          const result = await analysisRes.json();
+          setAiAnalysis(result.analysis);
+        } else {
+          throw new Error("Erreur lors de l'analyse");
+        }
+      } else {
+        // Use the case-based analysis
+        const analysisRes = await fetch("/api/ai/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caseId,
+            images: base64Images.length > 0 ? base64Images : undefined,
+          }),
+        });
+
+        if (analysisRes.ok) {
+          const result = await analysisRes.json();
+          setAiAnalysis(result.analysis);
+        } else {
+          throw new Error("Erreur lors de l'analyse");
+        }
+      }
+
+      toast({
+        title: "✅ Analyse terminée",
+        description: "L'analyse médicale complète a été générée",
+      });
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast({
+        title: "Erreur d'analyse",
+        description: "Une erreur est survenue lors de l'analyse",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const removeFile = (index: number) => {
@@ -235,12 +412,16 @@ export default function NewPatientPage() {
 
       // Upload files and add to case
       for (const uploadedFile of files) {
+        // Convert file to base64
+        const base64 = await fileToBase64(uploadedFile.file);
+        
         await fetch(`/api/cases/${newCase.id}/documents`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             fileName: uploadedFile.file.name,
             fileType: uploadedFile.file.type,
+            fileData: base64, // Store file as base64
             extractedText: uploadedFile.extractedText || "",
           }),
         });
@@ -533,9 +714,29 @@ export default function NewPatientPage() {
             {/* File list */}
             {files.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">
-                  {files.length} fichier(s) sélectionné(s)
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700">
+                    {files.length} fichier(s) sélectionné(s)
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className="h-9 gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg shadow-md"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Analyse en cours...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Analyser avec IA
+                      </>
+                    )}
+                  </Button>
+                </div>
                 {files.map((file, index) => (
                   <div
                     key={index}
@@ -558,6 +759,9 @@ export default function NewPatientPage() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {(file.file.size / 1024 / 1024).toFixed(2)} MB
+                        {file.extractedText && (
+                          <span className="ml-2 text-green-600">• Texte extrait</span>
+                        )}
                       </p>
                     </div>
                     {file.status === "done" ? (
@@ -583,6 +787,32 @@ export default function NewPatientPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Analysis Results */}
+        {aiAnalysis && (
+          <Card className="border-gray-200 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="pb-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+              <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                Analyse médicale IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{
+                  __html: aiAnalysis
+                    .replace(/\n/g, "<br />")
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+                    .replace(/## (.*?)/g, "<h2 class='text-xl font-bold mt-4 mb-2 text-gray-900'>$1</h2>")
+                    .replace(/### (.*?)/g, "<h3 class='text-lg font-semibold mt-3 mb-2 text-gray-800'>$1</h3>")
+                    .replace(/⚠️/g, "⚠️"),
+                }}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Submit */}
         <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">

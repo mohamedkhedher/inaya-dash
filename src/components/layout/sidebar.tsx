@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Heart,
+  TestTube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Patients", href: "/dashboard/patients", icon: Users },
   { name: "Nouveau Patient", href: "/dashboard/patients/new", icon: UserPlus },
   { name: "Dossiers", href: "/dashboard/cases", icon: FolderOpen },
+  { name: "Test Analyse IA", href: "/dashboard/test-analysis", icon: TestTube },
   { name: "Paramètres", href: "/dashboard/settings", icon: Settings },
 ];
 

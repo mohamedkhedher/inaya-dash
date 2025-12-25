@@ -114,5 +114,60 @@ export async function deleteFromGoogleDrive(fileId: string): Promise<void> {
   }
 }
 
+/**
+ * Download an image from Google Drive and convert it to base64
+ */
+export async function downloadImageFromGoogleDrive(
+  fileId: string,
+  mimeType?: string
+): Promise<string> {
+  try {
+    const response = await drive.files.get(
+      {
+        fileId,
+        alt: "media",
+      },
+      {
+        responseType: "arraybuffer",
+      }
+    );
+
+    const buffer = Buffer.from(response.data as ArrayBuffer);
+    const base64 = buffer.toString("base64");
+    const detectedMimeType = mimeType || "image/jpeg";
+    
+    return `data:${detectedMimeType};base64,${base64}`;
+  } catch (error) {
+    console.error("Google Drive download error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Extract file ID from Google Drive URL
+ */
+export function extractFileIdFromUrl(url: string): string | null {
+  // Handle different Google Drive URL formats
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  // If URL is just an ID
+  if (/^[a-zA-Z0-9_-]+$/.test(url)) {
+    return url;
+  }
+
+  return null;
+}
+
 export default drive;
 

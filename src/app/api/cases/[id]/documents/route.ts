@@ -9,7 +9,7 @@ export async function POST(
   try {
     const { id: caseId } = await params;
     const body = await request.json();
-    const { fileName, fileType, googleDriveId, googleDriveUrl, extractedText } = body;
+    const { fileName, fileType, googleDriveId, googleDriveUrl, fileData, extractedText } = body;
 
     if (!fileName || !fileType) {
       return NextResponse.json(
@@ -25,6 +25,7 @@ export async function POST(
         fileType,
         googleDriveId,
         googleDriveUrl,
+        fileData, // Base64 encoded file
         extractedText,
       },
     });

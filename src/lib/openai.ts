@@ -128,3 +128,125 @@ Format the response in markdown for better readability.`,
   return response.choices[0]?.message?.content || "Aucune analyse disponible.";
 }
 
+export interface MedicalAnalysisInput {
+  texts?: string[];
+  images?: string[]; // Base64 images
+  patientInfo?: {
+    fullName?: string;
+    patientCode?: string;
+    age?: number;
+    gender?: string;
+  };
+}
+
+export async function generateComprehensiveMedicalAnalysis(
+  input: MedicalAnalysisInput
+): Promise<string> {
+  const openai = getOpenAI();
+  
+  // Build content array with text and images
+  const content: any[] = [];
+  
+  // Add text content if available
+  if (input.texts && input.texts.length > 0) {
+    const combinedText = input.texts.join("\n\n---\n\n");
+    content.push({
+      type: "text",
+      text: `Documents textuels à analyser:\n\n${combinedText}`,
+    });
+  }
+  
+  // Add image content if available
+  if (input.images && input.images.length > 0) {
+    for (const image of input.images) {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`,
+        },
+      });
+    }
+  }
+  
+  // Build patient context
+  let patientContext = "";
+  if (input.patientInfo) {
+    const parts: string[] = [];
+    if (input.patientInfo.fullName) parts.push(`Nom: ${input.patientInfo.fullName}`);
+    if (input.patientInfo.patientCode) parts.push(`Code patient: ${input.patientInfo.patientCode}`);
+    if (input.patientInfo.age) parts.push(`Âge: ${input.patientInfo.age} ans`);
+    if (input.patientInfo.gender) parts.push(`Genre: ${input.patientInfo.gender}`);
+    if (parts.length > 0) {
+      patientContext = `\n\nInformations patient:\n${parts.join("\n")}`;
+    }
+  }
+  
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `Tu es un assistant médical IA spécialisé dans l'analyse complète de documents et d'images médicales.
+
+Ton rôle est de fournir une analyse médicale structurée et complète basée sur :
+- Les documents textuels fournis (rapports médicaux, analyses de laboratoire, notes cliniques)
+- Les images médicales fournies (radiographies, scanners, IRM, échographies, photos de blessures, etc.)
+
+IMPORTANT: 
+- Ceci est une PRÉ-ANALYSE, pas un diagnostic médical définitif
+- Analyse les images médicales en détail (anomalies visibles, structures normales, signes pathologiques)
+- Combine les informations textuelles et visuelles pour une vue d'ensemble complète
+- Sois factuel et objectif
+- Signale les éléments qui nécessitent une attention particulière
+
+Structure ta réponse ainsi en français:
+
+## 📋 Résumé de la condition
+Une vue d'ensemble brève de l'état du patient basée sur tous les éléments fournis.
+
+## 🔍 Observations détaillées
+
+### Documents textuels
+- Analyse des rapports, résultats de laboratoire, notes cliniques
+
+### Images médicales
+- Description détaillée de chaque image
+- Anomalies visibles
+- Structures normales identifiées
+- Signes pathologiques potentiels
+
+### Synthèse croisée
+- Corrélations entre les informations textuelles et visuelles
+- Cohérence ou incohérences entre les différents éléments
+
+## ⚠️ Points d'attention
+- Signaux d'alerte identifiés
+- Éléments nécessitant une investigation supplémentaire
+- Contradictions ou incohérences
+
+## 💡 Recommandations
+- Suggestions pour examens complémentaires
+- Suivi recommandé
+- Précautions à prendre
+
+⚠️ **AVERTISSEMENT**: Cette pré-analyse est générée par une intelligence artificielle et ne constitue PAS un diagnostic médical. Elle est fournie uniquement à titre informatif pour aider les professionnels de santé. Toute décision médicale doit être prise par un médecin qualifié après examen complet du patient.
+
+Format la réponse en markdown pour une meilleure lisibilité.`,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `Analyse médicale complète demandée${patientContext}\n\nVeuillez analyser les éléments suivants:`,
+          },
+          ...content,
+        ],
+      },
+    ],
+    max_tokens: 4000,
+  });
+
+  return response.choices[0]?.message?.content || "Aucune analyse disponible.";
+}
+

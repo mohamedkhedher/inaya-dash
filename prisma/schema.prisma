@@ -69,6 +69,7 @@ model Document {
   fileType     String
   googleDriveId String?
   googleDriveUrl String?
+  fileData     String?  @db.Text // Base64 encoded file data
   extractedText String?  @db.Text
   createdAt    DateTime @default(now())
 }
