@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { generateMedicalPreAnalysis } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,59 +32,17 @@ export async function POST(request: NextRequest) {
     // Collect all extracted text from documents
     const documentTexts = caseData.documents
       .filter((doc: { extractedText: string | null }) => doc.extractedText)
-      .map((doc: { fileName: string; extractedText: string | null }) => `--- Document: ${doc.fileName} ---\n${doc.extractedText}`)
-      .join("\n\n");
+      .map((doc: { fileName: string; extractedText: string | null }) => doc.extractedText || "");
 
-    if (!documentTexts) {
+    if (!documentTexts.length || !documentTexts.some((text: string) => text.trim())) {
       return NextResponse.json(
         { error: "Aucun texte extrait des documents" },
         { status: 400 }
       );
     }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `Tu es un assistant médical IA spécialisé dans la pré-analyse de documents médicaux.
-          
-Ton rôle est de fournir une synthèse structurée des documents médicaux pour aider les professionnels de santé.
-
-IMPORTANT: 
-- Ceci est une PRÉ-ANALYSE, pas un diagnostic
-- Toujours inclure un avertissement que ceci ne remplace pas l'avis d'un médecin
-- Être factuel et objectif
-- Signaler les éléments qui pourraient nécessiter une attention particulière
-
-Structure ta réponse ainsi:
-1. **Résumé** - Vue d'ensemble brève
-2. **Observations clés** - Points importants identifiés
-3. **Éléments à surveiller** - Signaux d'alerte potentiels
-4. **Recommandations** - Suggestions pour le suivi
-
-Réponds en français.`,
-        },
-        {
-          role: "user",
-          content: `Patient: ${caseData.patient.fullName}
-Code Patient: ${caseData.patient.patientCode}
-
-Documents médicaux à analyser:
-
-${documentTexts}`,
-        },
-      ],
-      max_tokens: 2000,
-    });
-
-    const analysis = response.choices[0]?.message?.content || "";
-
-    // Add disclaimer
-    const fullAnalysis = `${analysis}
-
----
-⚠️ **AVERTISSEMENT**: Cette pré-analyse est générée par une intelligence artificielle et ne constitue PAS un diagnostic médical. Elle est fournie uniquement à titre informatif pour aider les professionnels de santé. Toute décision médicale doit être prise par un médecin qualifié après examen complet du patient.`;
+    // Generate analysis using the centralized function
+    const fullAnalysis = await generateMedicalPreAnalysis(documentTexts);
 
     // Update case with analysis
     await prisma.case.update({
