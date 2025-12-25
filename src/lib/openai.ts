@@ -1,8 +1,13 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set");
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export async function extractPassportData(base64Image: string): Promise<{
   fullName: string;
@@ -11,6 +16,7 @@ export async function extractPassportData(base64Image: string): Promise<{
   dateOfBirth: string;
   gender: string;
 }> {
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
@@ -59,6 +65,7 @@ If you cannot find a field, use an empty string. Return ONLY the JSON object, no
 }
 
 export async function extractDocumentText(base64Image: string): Promise<string> {
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
@@ -91,7 +98,7 @@ export async function generateMedicalPreAnalysis(
   documentsText: string[]
 ): Promise<string> {
   const combinedText = documentsText.join("\n\n---\n\n");
-
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
@@ -120,6 +127,4 @@ Format the response in markdown for better readability.`,
 
   return response.choices[0]?.message?.content || "Aucune analyse disponible.";
 }
-
-export default openai;
 
