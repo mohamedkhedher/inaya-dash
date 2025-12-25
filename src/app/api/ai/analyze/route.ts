@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
 
     // Collect all extracted text from documents
     const documentTexts = caseData.documents
-      .filter((doc) => doc.extractedText)
-      .map((doc) => `--- Document: ${doc.fileName} ---\n${doc.extractedText}`)
+      .filter((doc: { extractedText: string | null }) => doc.extractedText)
+      .map((doc: { fileName: string; extractedText: string | null }) => `--- Document: ${doc.fileName} ---\n${doc.extractedText}`)
       .join("\n\n");
 
     if (!documentTexts) {
