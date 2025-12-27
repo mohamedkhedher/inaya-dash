@@ -87,22 +87,14 @@ export default function NewPatientPage() {
 
   // File input trigger handlers
   const triggerPassportUpload = () => {
-    console.log("Trigger passport upload clicked");
-    console.log("passportInputRef.current:", passportInputRef.current);
     if (passportInputRef.current) {
       passportInputRef.current.click();
-    } else {
-      console.error("passportInputRef is null");
     }
   };
 
   const triggerDocumentsUpload = () => {
-    console.log("Trigger documents upload clicked");
-    console.log("fileInputRef.current:", fileInputRef.current);
     if (fileInputRef.current) {
       fileInputRef.current.click();
-    } else {
-      console.error("fileInputRef is null");
     }
   };
 
