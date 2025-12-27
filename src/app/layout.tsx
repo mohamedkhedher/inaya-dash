@@ -43,9 +43,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="bg-white">
       <body
-        className={`${outfit.variable} ${jetbrainsMono.variable} antialiased min-h-screen`}
+        className={`${outfit.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-white`}
       >
         {children}
         <Toaster />

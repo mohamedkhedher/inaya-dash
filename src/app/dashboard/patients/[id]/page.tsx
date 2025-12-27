@@ -574,14 +574,14 @@ export default function PatientProfilePage({
                                     <div className="flex items-center gap-2 mb-2">
                                       <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
                                         <span className="text-xs font-medium text-primary">
-                                          {note.author.name.charAt(0)}
+                                          {note.author?.name?.charAt(0) || "?"}
                                         </span>
                                       </div>
                                       <span className="text-sm font-medium">
-                                        {note.author.name}
+                                        {note.author?.name || "Utilisateur inconnu"}
                                       </span>
                                       <Badge variant="secondary" className="text-xs">
-                                        {note.author.role}
+                                        {note.author?.role || "N/A"}
                                       </Badge>
                                       <span className="text-xs text-muted-foreground ml-auto">
                                         {format(

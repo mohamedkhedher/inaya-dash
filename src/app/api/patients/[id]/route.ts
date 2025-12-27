@@ -16,6 +16,14 @@ export async function GET(
           include: {
             documents: true,
             notes: {
+              include: {
+                author: {
+                  select: {
+                    name: true,
+                    role: true,
+                  },
+                },
+              },
               orderBy: { createdAt: "desc" },
             },
           },
@@ -73,5 +81,6 @@ export async function PATCH(
     );
   }
 }
+
 
 
