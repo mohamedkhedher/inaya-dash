@@ -85,6 +85,27 @@ export default function NewPatientPage() {
 
   const isExistingPatient = selectedPatient !== null;
 
+  // File input trigger handlers
+  const triggerPassportUpload = () => {
+    console.log("Trigger passport upload clicked");
+    console.log("passportInputRef.current:", passportInputRef.current);
+    if (passportInputRef.current) {
+      passportInputRef.current.click();
+    } else {
+      console.error("passportInputRef is null");
+    }
+  };
+
+  const triggerDocumentsUpload = () => {
+    console.log("Trigger documents upload clicked");
+    console.log("fileInputRef.current:", fileInputRef.current);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      console.error("fileInputRef is null");
+    }
+  };
+
   const handlePatientSelect = (patient: PatientSuggestion | null) => {
     setSelectedPatient(patient);
     if (patient) {
@@ -565,7 +586,7 @@ export default function NewPatientPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => passportInputRef.current?.click()}
+                      onClick={triggerPassportUpload}
                       disabled={isScanning}
                       className={`inline-flex items-center justify-center w-full sm:w-auto gap-2 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl h-11 px-4 font-medium cursor-pointer transition-colors ${isScanning ? 'opacity-50 pointer-events-none' : ''}`}
                     >
@@ -729,7 +750,7 @@ export default function NewPatientPage() {
               />
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={triggerDocumentsUpload}
                 className="w-full border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
               >
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center group-hover:scale-110 transition-transform">
