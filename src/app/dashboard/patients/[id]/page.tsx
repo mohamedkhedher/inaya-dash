@@ -96,6 +96,7 @@ export default function PatientProfilePage({
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [analyzingCaseId, setAnalyzingCaseId] = useState<string | null>(null);
+  const [pollingEnabled, setPollingEnabled] = useState(true);
 
   useEffect(() => {
     async function fetchPatient() {
@@ -109,6 +110,12 @@ export default function PatientProfilePage({
         setPatient(data);
         if (data.cases.length > 0) {
           setActiveCase(data.cases[0].id);
+          
+          // Check if any case is pending analysis (has documents but no analysis)
+          const hasPendingAnalysis = data.cases.some(
+            (c: Case) => c.documents.length > 0 && !c.aiPreAnalysis && c.status === "PENDING"
+          );
+          setPollingEnabled(hasPendingAnalysis);
         }
       } catch (error) {
         console.error("Error fetching patient:", error);
@@ -119,6 +126,44 @@ export default function PatientProfilePage({
 
     fetchPatient();
   }, [id, router]);
+
+  // Poll for analysis updates every 10 seconds if there's pending analysis
+  useEffect(() => {
+    if (!pollingEnabled) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/patients/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPatient(data);
+          
+          // Stop polling if all analyses are complete
+          const hasPendingAnalysis = data.cases.some(
+            (c: Case) => c.documents.length > 0 && !c.aiPreAnalysis && c.status === "PENDING"
+          );
+          
+          if (!hasPendingAnalysis) {
+            setPollingEnabled(false);
+            // Show notification that analysis is complete
+            const justCompleted = data.cases.some(
+              (c: Case) => c.status === "ANALYZED" && c.aiPreAnalysis
+            );
+            if (justCompleted) {
+              toast({
+                title: "✅ Analyse terminée",
+                description: "La pré-analyse IA est maintenant disponible !",
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Polling error:", error);
+      }
+    }, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [id, pollingEnabled, toast]);
 
   const handleAddNote = async (caseId: string) => {
     if (!newNote.trim()) return;
@@ -453,6 +498,22 @@ export default function PatientProfilePage({
                               <div className="prose prose-sm max-w-none dark:prose-invert">
                                 <div className="p-4 rounded-xl bg-muted/50 whitespace-pre-wrap">
                                   {caseItem.aiPreAnalysis}
+                                </div>
+                              </div>
+                            ) : caseItem.documents.length > 0 && caseItem.status === "PENDING" ? (
+                              <div className="text-center py-8">
+                                <Loader2 className="w-12 h-12 mx-auto mb-4 text-teal-500 animate-spin" />
+                                <h4 className="font-semibold mb-2 text-teal-700">
+                                  Analyse en cours...
+                                </h4>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                  L&apos;IA analyse les documents. Cela peut prendre quelques minutes.
+                                  <br />
+                                  Vous serez notifié une fois terminé.
+                                </p>
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-50 text-teal-700 text-sm">
+                                  <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                                  Actualisation automatique...
                                 </div>
                               </div>
                             ) : (

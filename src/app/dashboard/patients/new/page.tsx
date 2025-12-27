@@ -390,11 +390,22 @@ export default function NewPatientPage() {
         });
 
         if (!patientRes.ok) {
-          throw new Error("Erreur lors de la création du patient");
+          const errorData = await patientRes.json();
+          
+          // Handle duplicate patient error (409 Conflict)
+          if (patientRes.status === 409 && errorData.existingPatient) {
+            toast({
+              title: "⚠️ Patient existant",
+              description: `Ce patient existe déjà (${errorData.existingPatient.patientCode}). Utilisation du patient existant.`,
+            });
+            patientId = errorData.existingPatient.id;
+          } else {
+            throw new Error(errorData.error || "Erreur lors de la création du patient");
+          }
+        } else {
+          const patient = await patientRes.json();
+          patientId = patient.id;
         }
-
-        const patient = await patientRes.json();
-        patientId = patient.id;
       }
 
       // Create new case
@@ -424,6 +435,24 @@ export default function NewPatientPage() {
             fileData: base64, // Store file as base64
             extractedText: uploadedFile.extractedText || "",
           }),
+        });
+      }
+
+      // Trigger AI analysis in background if there are files
+      if (files.length > 0) {
+        toast({
+          title: "🤖 Analyse IA démarrée",
+          description: "L'analyse des documents est en cours en arrière-plan...",
+        });
+
+        // Start analysis without awaiting (fire and forget)
+        fetch("/api/ai/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caseId: newCase.id }),
+        }).catch((error) => {
+          console.error("Background analysis error:", error);
+          // Don't show error to user as it's background task
         });
       }
 

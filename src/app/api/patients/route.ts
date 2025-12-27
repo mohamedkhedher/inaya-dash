@@ -70,6 +70,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for duplicate patient by name or passport number
+    const duplicateConditions = [];
+    
+    // Check by full name (exact match, case-insensitive)
+    duplicateConditions.push({
+      fullName: {
+        equals: fullName.trim(),
+        mode: "insensitive" as const,
+      },
+    });
+
+    // If passport number is provided, also check by passport
+    if (passportNumber && passportNumber.trim()) {
+      duplicateConditions.push({
+        passportNumber: {
+          equals: passportNumber.trim(),
+          mode: "insensitive" as const,
+        },
+      });
+    }
+
+    const existingPatient = await prisma.patient.findFirst({
+      where: {
+        OR: duplicateConditions,
+      },
+      include: {
+        _count: {
+          select: { cases: true },
+        },
+      },
+    });
+
+    if (existingPatient) {
+      return NextResponse.json(
+        { 
+          error: "Ce patient existe déjà",
+          existingPatient: {
+            id: existingPatient.id,
+            patientCode: existingPatient.patientCode,
+            fullName: existingPatient.fullName,
+            casesCount: existingPatient._count.cases,
+          },
+        },
+        { status: 409 } // 409 Conflict
+      );
+    }
+
     // Generate patient code
     const counter = await prisma.counter.upsert({
       where: { id: "patient_counter" },
@@ -82,9 +129,9 @@ export async function POST(request: NextRequest) {
     const patient = await prisma.patient.create({
       data: {
         patientCode,
-        fullName,
+        fullName: fullName.trim(),
         nationality,
-        passportNumber,
+        passportNumber: passportNumber?.trim() || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         gender,
         phone,
