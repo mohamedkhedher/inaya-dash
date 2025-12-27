@@ -15,9 +15,69 @@ import {
   Bell,
   Shield,
   Check,
+  Trash2,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/components/ui/toast";
 
 export default function SettingsPage() {
+  const [secretKey, setSecretKey] = useState("");
+  const [isCleaningDb, setIsCleaningDb] = useState(false);
+  const { toast } = useToast();
+
+  const handleCleanDatabase = async () => {
+    if (!secretKey) {
+      toast({
+        title: "Clé requise",
+        description: "Veuillez entrer la clé secrète admin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("⚠️ ATTENTION: Ceci va supprimer TOUTES les données (patients, dossiers, documents) ! Êtes-vous ABSOLUMENT sûr ?")) {
+      return;
+    }
+
+    setIsCleaningDb(true);
+
+    try {
+      const res = await fetch("/api/admin/clean-db", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${secretKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({
+          title: "✅ Base nettoyée",
+          description: `${data.deleted.patients} patients, ${data.deleted.cases} dossiers, ${data.deleted.documents} documents supprimés`,
+        });
+        setSecretKey("");
+      } else {
+        toast({
+          title: "Erreur",
+          description: data.error || "Clé secrète incorrecte ou erreur serveur",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors du nettoyage",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningDb(false);
+    }
+  };
   return (
     <div className="space-y-6 animate-fade-in pb-8">
       {/* Header */}
@@ -235,6 +295,76 @@ export default function SettingsPage() {
             </p>
             <p>Version 1.0.0 MVP</p>
             <p>© 2024 INAYA Health. Tous droits réservés.</p>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone - Clean Database */}
+        <Card className="border-red-200 shadow-sm">
+          <CardHeader className="bg-red-50 border-b border-red-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-red-900">Zone Dangereuse</CardTitle>
+                <CardDescription className="text-red-600">
+                  Actions irréversibles - Utilisez avec précaution
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+              <div className="flex gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-900">
+                  <p className="font-semibold mb-1">⚠️ Nettoyage complet de la base</p>
+                  <p className="mb-2">
+                    Cette action supprimera <strong>DÉFINITIVEMENT</strong> :
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 mb-2">
+                    <li>Tous les patients</li>
+                    <li>Tous les dossiers médicaux</li>
+                    <li>Tous les documents uploadés</li>
+                    <li>Toutes les notes et analyses</li>
+                  </ul>
+                  <p className="font-semibold text-red-700">Cette action est IRRÉVERSIBLE !</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="clean-secret-key" className="text-red-900">
+                Clé secrète admin
+              </Label>
+              <Input
+                id="clean-secret-key"
+                type="password"
+                placeholder="Entrez la clé secrète (inaya-clean-2024)"
+                value={secretKey}
+                onChange={(e) => setSecretKey(e.target.value)}
+                className="font-mono h-11"
+              />
+            </div>
+
+            <Button
+              onClick={handleCleanDatabase}
+              disabled={isCleaningDb || !secretKey}
+              variant="destructive"
+              className="w-full gap-2 h-11"
+            >
+              {isCleaningDb ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Nettoyage en cours...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Nettoyer la base de données
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>
