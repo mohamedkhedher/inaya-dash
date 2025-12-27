@@ -43,6 +43,7 @@ interface Document {
   fileType: string;
   googleDriveId: string | null;
   googleDriveUrl: string | null;
+  fileData: string | null;
   extractedText: string | null;
   createdAt: string;
 }
@@ -274,6 +275,49 @@ export default function PatientProfilePage({
         return "Terminé";
       default:
         return "En attente";
+    }
+  };
+
+  // Handle document view/download
+  const handleViewDocument = (doc: Document) => {
+    if (doc.googleDriveUrl) {
+      // Open Google Drive link in new tab
+      window.open(doc.googleDriveUrl, "_blank");
+    } else if (doc.fileData) {
+      // Create a blob URL from base64 and open it
+      try {
+        // Check if it's a data URL
+        if (doc.fileData.startsWith("data:")) {
+          window.open(doc.fileData, "_blank");
+        } else {
+          // Convert base64 to blob and open
+          const base64Data = doc.fileData.includes(",")
+            ? doc.fileData.split(",")[1]
+            : doc.fileData;
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: doc.fileType });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, "_blank");
+        }
+      } catch (error) {
+        console.error("Error opening document:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible d'ouvrir le document",
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "Document non disponible",
+        description: "Le fichier n'est pas disponible",
+        variant: "destructive",
+      });
     }
   };
 
@@ -562,13 +606,14 @@ export default function PatientProfilePage({
                                 {caseItem.documents.map((doc) => (
                                   <div
                                     key={doc.id}
-                                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                                    onClick={() => handleViewDocument(doc)}
+                                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
                                   >
-                                    <div className="w-10 h-10 rounded-lg bg-card flex items-center justify-center">
-                                      <FileText className="w-5 h-5 text-muted-foreground" />
+                                    <div className="w-10 h-10 rounded-lg bg-card flex items-center justify-center group-hover:bg-teal-50 transition-colors">
+                                      <FileText className="w-5 h-5 text-muted-foreground group-hover:text-teal-600 transition-colors" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-sm truncate">
+                                      <p className="font-medium text-sm truncate group-hover:text-teal-700 transition-colors">
                                         {doc.fileName}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
@@ -578,17 +623,17 @@ export default function PatientProfilePage({
                                         )}
                                       </p>
                                     </div>
-                                    {doc.googleDriveUrl && (
-                                      <a
-                                        href={doc.googleDriveUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        <Button variant="ghost" size="icon">
-                                          <ExternalLink className="w-4 h-4" />
-                                        </Button>
-                                      </a>
-                                    )}
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      className="shrink-0"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleViewDocument(doc);
+                                      }}
+                                    >
+                                      <ExternalLink className="w-4 h-4" />
+                                    </Button>
                                   </div>
                                 ))}
                               </div>
