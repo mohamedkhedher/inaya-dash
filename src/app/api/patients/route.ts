@@ -70,45 +70,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicate patient by name or passport number
-    // Using lowercase comparison for case-insensitive matching
-    const normalizedName = fullName.trim().toLowerCase();
-    const normalizedPassport = passportNumber?.trim().toLowerCase();
-    
-    // Find all patients and filter manually (since Prisma mode: insensitive with equals doesn't work well on all DB)
-    const allPatients = await prisma.patient.findMany({
-      select: {
-        id: true,
-        patientCode: true,
-        fullName: true,
-        passportNumber: true,
-        _count: {
-          select: { cases: true },
-        },
-      },
-    });
-
-    const existingPatient = allPatients.find(p => {
-      const matchByName = p.fullName.toLowerCase() === normalizedName;
-      const matchByPassport = normalizedPassport && p.passportNumber?.toLowerCase() === normalizedPassport;
-      return matchByName || matchByPassport;
-    });
-
-    if (existingPatient) {
-      return NextResponse.json(
-        { 
-          error: "Ce patient existe déjà",
-          existingPatient: {
-            id: existingPatient.id,
-            patientCode: existingPatient.patientCode,
-            fullName: existingPatient.fullName,
-            casesCount: existingPatient._count?.cases || 0,
-          },
-        },
-        { status: 409 } // 409 Conflict
-      );
-    }
-
     // Generate patient code
     const counter = await prisma.counter.upsert({
       where: { id: "patient_counter" },
