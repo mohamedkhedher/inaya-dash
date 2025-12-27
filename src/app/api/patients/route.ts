@@ -92,6 +92,15 @@ export async function GET(request: NextRequest) {
 // POST create new patient
 export async function POST(request: NextRequest) {
   try {
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      console.error("DATABASE_URL environment variable is not set");
+      return NextResponse.json(
+        { error: "Base de données non configurée. Veuillez configurer DATABASE_URL sur Vercel." },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { fullName, nationality, passportNumber, dateOfBirth, gender, phone, email, address } = body;
 
@@ -103,11 +112,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate patient code
-    const counter = await prisma.counter.upsert({
-      where: { id: "patient_counter" },
-      update: { value: { increment: 1 } },
-      create: { id: "patient_counter", value: 1 },
-    });
+    let counter;
+    try {
+      counter = await prisma.counter.upsert({
+        where: { id: "patient_counter" },
+        update: { value: { increment: 1 } },
+        create: { id: "patient_counter", value: 1 },
+      });
+    } catch (dbError) {
+      console.error("Database error creating counter:", dbError);
+      const errorMessage = dbError instanceof Error ? dbError.message : "Database error";
+      return NextResponse.json(
+        { error: `Erreur de connexion à la base de données: ${errorMessage}` },
+        { status: 500 }
+      );
+    }
 
     const patientCode = `IN${String(counter.value).padStart(4, "0")}`;
 
@@ -115,13 +134,13 @@ export async function POST(request: NextRequest) {
       data: {
         patientCode,
         fullName: fullName.trim(),
-        nationality,
+        nationality: nationality || null,
         passportNumber: passportNumber?.trim() || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        gender,
-        phone,
-        email,
-        address,
+        gender: gender || null,
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
       },
       include: {
         cases: true,
@@ -131,8 +150,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(patient, { status: 201 });
   } catch (error) {
     console.error("Error creating patient:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Erreur lors de la création du patient" },
+      { error: `Erreur lors de la création du patient: ${errorMessage}` },
       { status: 500 }
     );
   }
