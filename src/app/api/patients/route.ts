@@ -71,35 +71,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate patient by name or passport number
-    const duplicateConditions = [];
+    // Using lowercase comparison for case-insensitive matching
+    const normalizedName = fullName.trim().toLowerCase();
+    const normalizedPassport = passportNumber?.trim().toLowerCase();
     
-    // Check by full name (exact match, case-insensitive)
-    duplicateConditions.push({
-      fullName: {
-        equals: fullName.trim(),
-        mode: "insensitive" as const,
-      },
-    });
-
-    // If passport number is provided, also check by passport
-    if (passportNumber && passportNumber.trim()) {
-      duplicateConditions.push({
-        passportNumber: {
-          equals: passportNumber.trim(),
-          mode: "insensitive" as const,
-        },
-      });
-    }
-
-    const existingPatient = await prisma.patient.findFirst({
-      where: {
-        OR: duplicateConditions,
-      },
-      include: {
+    // Find all patients and filter manually (since Prisma mode: insensitive with equals doesn't work well on all DB)
+    const allPatients = await prisma.patient.findMany({
+      select: {
+        id: true,
+        patientCode: true,
+        fullName: true,
+        passportNumber: true,
         _count: {
           select: { cases: true },
         },
       },
+    });
+
+    const existingPatient = allPatients.find(p => {
+      const matchByName = p.fullName.toLowerCase() === normalizedName;
+      const matchByPassport = normalizedPassport && p.passportNumber?.toLowerCase() === normalizedPassport;
+      return matchByName || matchByPassport;
     });
 
     if (existingPatient) {
@@ -110,7 +102,7 @@ export async function POST(request: NextRequest) {
             id: existingPatient.id,
             patientCode: existingPatient.patientCode,
             fullName: existingPatient.fullName,
-            casesCount: existingPatient._count.cases,
+            casesCount: existingPatient._count?.cases || 0,
           },
         },
         { status: 409 } // 409 Conflict
