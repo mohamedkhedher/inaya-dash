@@ -4,6 +4,16 @@ import { prisma } from "@/lib/prisma";
 // GET all patients with search
 export async function GET(request: NextRequest) {
   try {
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      console.error("DATABASE_URL environment variable is not set");
+      return NextResponse.json({
+        patients: [],
+        pagination: { total: 0, pages: 0, page: 1, limit: 10 },
+        warning: "Base de données non configurée"
+      });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get("search") || "";
     const page = parseInt(searchParams.get("page") || "1");
@@ -20,24 +30,37 @@ export async function GET(request: NextRequest) {
         }
       : {};
 
-    const [patients, total] = await Promise.all([
-      prisma.patient.findMany({
-        where,
-        include: {
-          cases: {
-            orderBy: { createdAt: "desc" },
-            take: 1,
+    let patients = [];
+    let total = 0;
+
+    try {
+      [patients, total] = await Promise.all([
+        prisma.patient.findMany({
+          where,
+          include: {
+            cases: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+            _count: {
+              select: { cases: true },
+            },
           },
-          _count: {
-            select: { cases: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.patient.count({ where }),
-    ]);
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.patient.count({ where }),
+      ]);
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      const dbErrorMessage = dbError instanceof Error ? dbError.message : "Database error";
+      return NextResponse.json({
+        patients: [],
+        pagination: { total: 0, pages: 0, page: 1, limit: 10 },
+        warning: `Erreur de connexion à la base de données: ${dbErrorMessage}`
+      });
+    }
 
     return NextResponse.json({
       patients,
@@ -50,10 +73,19 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching patients:", error);
-    return NextResponse.json(
-      { error: "Erreur lors de la récupération des patients" },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Return empty list with error info instead of 500
+    return NextResponse.json({
+      patients: [],
+      pagination: {
+        total: 0,
+        pages: 0,
+        page: 1,
+        limit: 10,
+      },
+      warning: `Erreur: ${errorMessage}`,
+    });
   }
 }
 

@@ -555,31 +555,33 @@ export default function NewPatientPage() {
                       </p>
                     </div>
                   </div>
-                  <input
-                    type="file"
-                    ref={passportInputRef}
-                    onChange={handlePassportScan}
-                    accept="image/*,.pdf"
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => passportInputRef.current?.click()}
-                    disabled={isScanning}
-                    className="w-full sm:w-auto gap-2 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl h-11"
-                  >
-                    {isScanning ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Analyse en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        Scanner avec IA
-                      </>
-                    )}
-                  </Button>
+                  <div className="w-full sm:w-auto">
+                    <input
+                      type="file"
+                      id="passport-file-input"
+                      ref={passportInputRef}
+                      onChange={handlePassportScan}
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      aria-hidden="true"
+                    />
+                    <label
+                      htmlFor="passport-file-input"
+                      className={`inline-flex items-center justify-center w-full sm:w-auto gap-2 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl h-11 px-4 font-medium cursor-pointer transition-colors ${isScanning ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
+                      {isScanning ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analyse en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Scanner avec IA
+                        </>
+                      )}
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
@@ -716,28 +718,32 @@ export default function NewPatientPage() {
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             {/* Upload zone */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
-            >
+            <div>
               <input
                 ref={fileInputRef}
+                id="documents-file-input"
                 type="file"
                 multiple
                 onChange={handleFileUpload}
                 accept="image/*,.pdf"
                 className="hidden"
+                aria-hidden="true"
               />
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Upload className="w-8 h-8 text-blue-500" />
-              </div>
-              <p className="font-semibold text-gray-900">Glissez vos fichiers ici</p>
-              <p className="text-sm text-gray-500 mt-1">
-                ou cliquez pour sélectionner
-              </p>
-              <p className="text-xs text-gray-400 mt-3">
-                Formats acceptés: PDF, JPG, PNG • Taille max: 10 MB
-              </p>
+              <label
+                htmlFor="documents-file-input"
+                className="block border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
+              >
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Upload className="w-8 h-8 text-blue-500" />
+                </div>
+                <p className="font-semibold text-gray-900">Glissez vos fichiers ici</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  ou cliquez pour sélectionner
+                </p>
+                <p className="text-xs text-gray-400 mt-3">
+                  Formats acceptés: PDF, JPG, PNG • Taille max: 10 MB
+                </p>
+              </label>
             </div>
 
             {/* File list */}

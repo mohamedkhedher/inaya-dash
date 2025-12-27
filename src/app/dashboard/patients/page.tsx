@@ -51,9 +51,11 @@ export default function PatientsPage() {
   });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPatients = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
@@ -64,10 +66,20 @@ export default function PatientsPage() {
       const res = await fetch(`/api/patients?${params}`);
       const data = await res.json();
 
-      setPatients(data.patients || []);
+      if (data.error && !data.patients) {
+        setError(data.error);
+        setPatients([]);
+      } else {
+        setPatients(data.patients || []);
+        if (data.error) {
+          setError(data.error);
+        }
+      }
       setPagination((prev) => ({ ...prev, ...data.pagination }));
     } catch (error) {
       console.error("Error fetching patients:", error);
+      setError("Erreur de connexion au serveur");
+      setPatients([]);
     } finally {
       setLoading(false);
     }
@@ -139,6 +151,19 @@ export default function PatientsPage() {
           className="pl-12 h-14 text-base bg-white border-gray-200 rounded-xl focus:border-teal-500 focus:ring-teal-500 shadow-sm"
         />
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+            <span className="text-amber-600">⚠️</span>
+          </div>
+          <div>
+            <p className="font-medium text-amber-800">Attention</p>
+            <p className="text-sm text-amber-700">{error}</p>
+          </div>
+        </div>
+      )}
 
       {/* Patients List */}
       {loading ? (
