@@ -562,7 +562,7 @@ Ne jamais utiliser de termes médicaux non présents dans l'objet fourni.
 
 GESTION DES DONNÉES
 Si une donnée est fournie par l'utilisateur → tu l'intègres.
-Si une donnée est absente → tu la laisses vide ou avec "_____________________".
+Si une donnée est absente → tu la laisses vide.
 Si un montant est donné sous forme de fourchette → tu la recopies telle quelle.
 Le total en lettres doit correspondre exactement au total chiffré.
 
