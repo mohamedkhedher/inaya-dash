@@ -107,8 +107,8 @@ export function Sidebar() {
               Menu principal
             </p>
             {navigation.map((item) => {
-              const isActive = pathname === item.href || 
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              // Only exact match for highlighting, except for dashboard which is exactly "/"
+              const isActive = pathname === item.href;
               
               return (
                 <Link
