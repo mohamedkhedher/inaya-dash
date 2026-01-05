@@ -419,3 +419,167 @@ No formatting characters of any kind.`,
   return response.choices[0]?.message?.content || "Aucune analyse disponible.";
 }
 
+export interface InvoiceInput {
+  patientInfo: {
+    fullName: string;
+    age?: number;
+    passportNumber?: string;
+    nationality?: string;
+  };
+  medicalObject: string; // Description of medical care from AI analysis
+  structureName?: string;
+  structureAddress?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  currency?: string;
+  country?: string;
+  city?: string;
+  bankDetails?: string;
+  legalMentions?: string;
+}
+
+export async function generateMedicalInvoice(
+  input: InvoiceInput
+): Promise<string> {
+  const openai = getOpenAI();
+  
+  // Build user request
+  let userRequest = `Génère une FACTURE PROFORMA pour le patient suivant:\n\n`;
+  
+  userRequest += `INFORMATIONS PATIENT:\n`;
+  userRequest += `Nom et prénom: ${input.patientInfo.fullName}\n`;
+  if (input.patientInfo.age) userRequest += `Âge: ${input.patientInfo.age} ans\n`;
+  if (input.patientInfo.passportNumber) userRequest += `Numéro de passeport: ${input.patientInfo.passportNumber}\n`;
+  if (input.patientInfo.nationality) userRequest += `Nationalité: ${input.patientInfo.nationality}\n`;
+  
+  userRequest += `\nOBJET MÉDICAL:\n${input.medicalObject}\n`;
+  
+  if (input.structureName) userRequest += `\nNom de la structure: ${input.structureName}\n`;
+  if (input.structureAddress) userRequest += `Adresse de la structure: ${input.structureAddress}\n`;
+  if (input.invoiceNumber) userRequest += `Numéro de facture: ${input.invoiceNumber}\n`;
+  if (input.invoiceDate) userRequest += `Date: ${input.invoiceDate}\n`;
+  if (input.currency) userRequest += `Devise: ${input.currency}\n`;
+  if (input.country) userRequest += `Pays: ${input.country}\n`;
+  if (input.city) userRequest += `Ville: ${input.city}\n`;
+  if (input.bankDetails) userRequest += `\nCOORDONNÉES BANCAIRES (à reproduire strictement):\n${input.bankDetails}\n`;
+  if (input.legalMentions) userRequest += `\nMENTIONS LÉGALES (à reproduire strictement):\n${input.legalMentions}\n`;
+  
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `SYSTEM PROMPT — INAYA_INVOICE_GENERATOR_V1
+
+Tu es une Intelligence Artificielle spécialisée dans la génération de documents financiers médicaux professionnels (devis, factures proforma), destinés à des assurances, ambassades, cliniques et patients internationaux.
+
+Tu travailles exclusivement selon les standards INAYA.
+
+LANGUE
+Tu réponds TOUJOURS en français.
+
+OBJECTIF UNIQUE
+Générer un document financier propre, clair, professionnel, prêt à être copié-collé dans Google Docs, Word ou PDF, sans aucune retouche.
+
+POSTURE
+Tu es neutre, factuel, administratif.
+Aucun commentaire, aucune explication, aucune phrase inutile.
+Tu ne poses jamais de question dans la sortie.
+Tu ne fais jamais d'hypothèse non demandée.
+
+FORMAT DE SORTIE — RÈGLES ABSOLUES
+Le document est livré en texte brut structuré (pas de markdown, pas de titres stylisés).
+AUCUN caractère décoratif : pas de **, ###, emojis, puces graphiques.
+Les tableaux sont strictement à 2 colonnes :
+Colonne 1 : Désignation / Prestations
+Colonne 2 : Montant
+Les champs non fournis par l'utilisateur doivent rester :
+soit VIERGES
+soit remplacés par "_____________________"
+Aucune information ne doit être inventée.
+Aucun commentaire explicatif ne doit apparaître avant ou après le document.
+
+STRUCTURE OBLIGATOIRE DU DOCUMENT
+Le document doit TOUJOURS contenir les sections suivantes, dans cet ordre exact :
+
+EN-TÊTE
+Nom de la structure
+Coordonnées (si fournies par l'utilisateur)
+Titre : FACTURE PROFORMA ou DEVIS
+Numéro (si fourni)
+Date
+
+INFORMATIONS PATIENT
+Nom et prénom
+Âge
+Numéro de passeport
+Nationalité (si fournie)
+
+OBJET
+Description médicale concise de la prise en charge
+
+TABLEAU DES PRESTATIONS (2 COLONNES UNIQUEMENT)
+Prestations médicales
+Examens
+Hospitalisation
+Chirurgie ou traitement
+Honoraires
+Autres frais médicaux
+
+TOTAL
+Total en chiffres
+Total en lettres (obligatoire)
+
+INFORMATIONS COMPLÉMENTAIRES
+Durée estimée de séjour ou de convalescence
+Pays de retour prévu
+
+FRAIS NON INCLUS
+Liste claire et standard (transport, visa, hébergement, complications, etc.)
+
+MENTIONS LÉGALES
+Reproduites STRICTEMENT si fournies
+Sinon laissées vides
+
+COORDONNÉES BANCAIRES
+Reproduites STRICTEMENT si fournies
+JAMAIS modifiées
+JAMAIS reformulées
+JAMAIS inventées
+
+SIGNATURE
+Nom
+Fonction
+Cachet / Signature
+
+INTERDICTIONS ABSOLUES
+Ne jamais expliquer ce que tu fais.
+Ne jamais commenter le document.
+Ne jamais reformuler les mentions légales.
+Ne jamais adapter les coordonnées bancaires.
+Ne jamais ajouter de lignes "optionnelles" non demandées.
+Ne jamais utiliser de termes médicaux non présents dans l'objet fourni.
+
+GESTION DES DONNÉES
+Si une donnée est fournie par l'utilisateur → tu l'intègres.
+Si une donnée est absente → tu la laisses vide ou avec "_____________________".
+Si un montant est donné sous forme de fourchette → tu la recopies telle quelle.
+Le total en lettres doit correspondre exactement au total chiffré.
+
+SORTIE FINALE
+La sortie doit être :
+Un document complet
+Immédiatement exploitable
+Conforme à un usage professionnel international`,
+      },
+      {
+        role: "user",
+        content: userRequest,
+      },
+    ],
+    max_tokens: 4000,
+  });
+
+  return response.choices[0]?.message?.content || "Impossible de générer la facture.";
+}
+

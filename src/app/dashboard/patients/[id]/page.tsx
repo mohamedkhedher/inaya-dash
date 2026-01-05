@@ -31,6 +31,10 @@ import {
   MessageSquare,
   ExternalLink,
   Brain,
+  Receipt,
+  Copy,
+  Check,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -98,6 +102,19 @@ export default function PatientProfilePage({
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [analyzingCaseId, setAnalyzingCaseId] = useState<string | null>(null);
   const [pollingEnabled, setPollingEnabled] = useState(true);
+  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [currentInvoice, setCurrentInvoice] = useState<string | null>(null);
+  const [invoiceCopied, setInvoiceCopied] = useState(false);
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    structureName: "",
+    structureAddress: "",
+    currency: "EUR",
+    country: "",
+    city: "",
+    bankDetails: "",
+    legalMentions: "",
+  });
 
   useEffect(() => {
     async function fetchPatient() {
@@ -249,6 +266,58 @@ export default function PatientProfilePage({
       });
     } finally {
       setAnalyzingCaseId(null);
+    }
+  };
+
+  const handleGenerateInvoice = async (caseId: string) => {
+    setGeneratingInvoice(caseId);
+    try {
+      const res = await fetch("/api/ai/invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId,
+          ...invoiceSettings,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        setCurrentInvoice(result.invoice);
+        setShowInvoiceModal(true);
+        toast({
+          title: "Facture générée",
+          description: `Facture ${result.invoiceNumber} créée avec succès`,
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: result.error || "Impossible de générer la facture",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Invoice generation error:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la génération",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingInvoice(null);
+    }
+  };
+
+  const handleCopyInvoice = async () => {
+    if (currentInvoice) {
+      await navigator.clipboard.writeText(currentInvoice);
+      setInvoiceCopied(true);
+      setTimeout(() => setInvoiceCopied(false), 2000);
+      toast({
+        title: "Copié !",
+        description: "La facture a été copiée dans le presse-papiers",
+      });
     }
   };
 
@@ -539,9 +608,31 @@ export default function PatientProfilePage({
                           {/* AI Analysis Tab */}
                           <TabsContent value="analysis" className="mt-4">
                             {caseItem.aiPreAnalysis ? (
-                              <div className="prose prose-sm max-w-none dark:prose-invert">
-                                <div className="p-4 rounded-xl bg-muted/50 whitespace-pre-wrap">
-                                  {caseItem.aiPreAnalysis}
+                              <div className="space-y-4">
+                                <div className="prose prose-sm max-w-none dark:prose-invert">
+                                  <div className="p-4 rounded-xl bg-muted/50 whitespace-pre-wrap">
+                                    {caseItem.aiPreAnalysis}
+                                  </div>
+                                </div>
+                                {/* Invoice Generation Button */}
+                                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                                  <Button
+                                    onClick={() => handleGenerateInvoice(caseItem.id)}
+                                    disabled={generatingInvoice === caseItem.id}
+                                    className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                                  >
+                                    {generatingInvoice === caseItem.id ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Génération en cours...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Receipt className="w-4 h-4" />
+                                        Générer Facture Proforma
+                                      </>
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
                             ) : caseItem.documents.length > 0 && caseItem.status === "PENDING" ? (
@@ -715,6 +806,86 @@ export default function PatientProfilePage({
           )}
         </div>
       </div>
+
+      {/* Invoice Modal */}
+      {showInvoiceModal && currentInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Facture Proforma</h2>
+                  <p className="text-sm text-muted-foreground">Prête à copier-coller</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyInvoice}
+                  className="gap-2"
+                >
+                  {invoiceCopied ? (
+                    <>
+                      <Check className="w-4 h-4 text-green-500" />
+                      Copié !
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copier
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowInvoiceModal(false);
+                    setCurrentInvoice(null);
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="bg-gray-50 rounded-xl p-6 font-mono text-sm whitespace-pre-wrap leading-relaxed">
+                {currentInvoice}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-6 border-t bg-gray-50 rounded-b-2xl">
+              <p className="text-sm text-muted-foreground">
+                Ce document peut être copié directement dans Word, Google Docs ou tout autre éditeur.
+              </p>
+              <Button
+                onClick={handleCopyInvoice}
+                className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+              >
+                {invoiceCopied ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Copié !
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copier la facture
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
