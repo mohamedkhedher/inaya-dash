@@ -35,6 +35,7 @@ import {
   Copy,
   Check,
   X,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -317,6 +318,78 @@ export default function PatientProfilePage({
       toast({
         title: "Copié !",
         description: "La facture a été copiée dans le presse-papiers",
+      });
+    }
+  };
+
+  const handleDownloadInvoice = async (format: 'txt' | 'pdf') => {
+    if (!currentInvoice || !patient) return;
+
+    if (format === 'txt') {
+      // Download as text file
+      const blob = new Blob([currentInvoice], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Facture_${patient.patientCode}_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Téléchargé !",
+        description: "La facture a été téléchargée en format texte",
+      });
+    } else if (format === 'pdf') {
+      // Dynamic import for PDF generation
+      const { jsPDF } = await import('jspdf');
+      
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+      
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FACTURE PROFORMA', pageWidth / 2, 25, { align: 'center' });
+      
+      // Content
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      
+      const lines = doc.splitTextToSize(currentInvoice, maxWidth);
+      let yPosition = 40;
+      const lineHeight = 5;
+      
+      for (const line of lines) {
+        if (yPosition > 280) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        // Check if line is a section header (all caps)
+        if (line === line.toUpperCase() && line.trim().length > 0 && !line.includes(':')) {
+          doc.setFont('helvetica', 'bold');
+          yPosition += 3;
+        } else {
+          doc.setFont('helvetica', 'normal');
+        }
+        
+        doc.text(line, margin, yPosition);
+        yPosition += lineHeight;
+      }
+      
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(128);
+      doc.text('Document généré par INAYA - Gestion Médicale', pageWidth / 2, 290, { align: 'center' });
+      
+      doc.save(`Facture_${patient.patientCode}_${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast({
+        title: "Téléchargé !",
+        description: "La facture a été téléchargée en format PDF",
       });
     }
   };
@@ -842,6 +915,15 @@ export default function PatientProfilePage({
                   )}
                 </Button>
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadInvoice('pdf')}
+                  className="gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  PDF
+                </Button>
+                <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => {
@@ -862,26 +944,27 @@ export default function PatientProfilePage({
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between p-6 border-t bg-gray-50 rounded-b-2xl">
-              <p className="text-sm text-muted-foreground">
-                Ce document peut être copié directement dans Word, Google Docs ou tout autre éditeur.
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 border-t bg-gray-50 rounded-b-2xl">
+              <p className="text-sm text-muted-foreground text-center sm:text-left">
+                Téléchargez en PDF ou copiez dans Word/Google Docs
               </p>
-              <Button
-                onClick={handleCopyInvoice}
-                className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-              >
-                {invoiceCopied ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Copié !
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    Copier la facture
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownloadInvoice('txt')}
+                  className="gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Texte
+                </Button>
+                <Button
+                  onClick={() => handleDownloadInvoice('pdf')}
+                  className="gap-2 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+                >
+                  <Download className="w-4 h-4" />
+                  Télécharger PDF
+                </Button>
+              </div>
             </div>
           </div>
         </div>

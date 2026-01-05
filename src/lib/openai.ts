@@ -454,6 +454,25 @@ export async function generateMedicalInvoice(
   
   userRequest += `\nOBJET MÉDICAL:\n${input.medicalObject}\n`;
   
+  userRequest += `\nIMPORTANT - TARIFICATION:
+Tu DOIS générer des montants réalistes en EUR pour chaque prestation basés sur les tarifs moyens internationaux.
+Exemples de tarifs de référence:
+- Consultation spécialiste: 80-150 EUR
+- Bilan sanguin complet: 150-300 EUR
+- ECG: 50-100 EUR
+- Échocardiographie: 200-400 EUR
+- Scanner/IRM: 400-800 EUR
+- Épreuve d'effort: 200-350 EUR
+- Hospitalisation/jour: 300-600 EUR
+- Chirurgie mineure: 1500-3000 EUR
+- Chirurgie majeure: 5000-15000 EUR
+- Honoraires chirurgien: 1000-3000 EUR
+- Anesthésie: 500-1500 EUR
+
+Génère des prix PRÉCIS en EUR pour CHAQUE ligne du tableau des prestations.
+Le TOTAL doit être la somme exacte de toutes les prestations.
+N'utilise JAMAIS de blancs ou underscores pour les montants.\n`;
+  
   if (input.structureName) userRequest += `\nNom de la structure: ${input.structureName}\n`;
   if (input.structureAddress) userRequest += `Adresse de la structure: ${input.structureAddress}\n`;
   if (input.invoiceNumber) userRequest += `Numéro de facture: ${input.invoiceNumber}\n`;
