@@ -454,25 +454,6 @@ export async function generateMedicalInvoice(
   
   userRequest += `\nOBJET MÉDICAL:\n${input.medicalObject}\n`;
   
-  userRequest += `\nIMPORTANT - TARIFICATION:
-Tu DOIS générer des montants réalistes en EUR pour chaque prestation basés sur les tarifs moyens internationaux.
-Exemples de tarifs de référence:
-- Consultation spécialiste: 80-150 EUR
-- Bilan sanguin complet: 150-300 EUR
-- ECG: 50-100 EUR
-- Échocardiographie: 200-400 EUR
-- Scanner/IRM: 400-800 EUR
-- Épreuve d'effort: 200-350 EUR
-- Hospitalisation/jour: 300-600 EUR
-- Chirurgie mineure: 1500-3000 EUR
-- Chirurgie majeure: 5000-15000 EUR
-- Honoraires chirurgien: 1000-3000 EUR
-- Anesthésie: 500-1500 EUR
-
-Génère des prix PRÉCIS en EUR pour CHAQUE ligne du tableau des prestations.
-Le TOTAL doit être la somme exacte de toutes les prestations.
-N'utilise JAMAIS de blancs ou underscores pour les montants.\n`;
-  
   if (input.structureName) userRequest += `\nNom de la structure: ${input.structureName}\n`;
   if (input.structureAddress) userRequest += `Adresse de la structure: ${input.structureAddress}\n`;
   if (input.invoiceNumber) userRequest += `Numéro de facture: ${input.invoiceNumber}\n`;
@@ -585,9 +566,63 @@ Si une donnée est absente → tu la laisses vide.
 Si un montant est donné sous forme de fourchette → tu la recopies telle quelle.
 Le total en lettres doit correspondre exactement au total chiffré.
 
+TARIFICATION OBLIGATOIRE
+Tu DOIS TOUJOURS générer des montants en EUR pour chaque prestation.
+JAMAIS de champs vides ou underscores pour les prix.
+Utilise ces tarifs de référence internationaux:
+
+Consultations:
+Consultation généraliste: 60 EUR
+Consultation spécialiste: 120 EUR
+Consultation urgente: 150 EUR
+
+Examens biologiques:
+Bilan sanguin standard: 80 EUR
+Bilan sanguin complet: 200 EUR
+HbA1c: 35 EUR
+Bilan rénal: 60 EUR
+Bilan hépatique: 70 EUR
+Bilan lipidique: 50 EUR
+PSA: 40 EUR
+Bilan hormonal: 150 EUR
+
+Imagerie:
+Radiographie: 80 EUR
+Échographie: 150 EUR
+Échocardiographie: 300 EUR
+Scanner: 450 EUR
+IRM: 600 EUR
+Mammographie: 120 EUR
+
+Cardiologie:
+ECG: 50 EUR
+Holter ECG 24h: 180 EUR
+Épreuve d'effort: 280 EUR
+Coronarographie: 1500 EUR
+
+Hospitalisation:
+Chambre standard/jour: 400 EUR
+Chambre individuelle/jour: 600 EUR
+Soins intensifs/jour: 1200 EUR
+Réanimation/jour: 2000 EUR
+
+Chirurgie:
+Chirurgie mineure: 2000 EUR
+Chirurgie moyenne: 5000 EUR
+Chirurgie majeure: 12000 EUR
+Honoraires chirurgien: 2000 EUR
+Anesthésie: 800 EUR
+
+Autres:
+Kinésithérapie/séance: 60 EUR
+Médicaments hospitaliers: 200 EUR
+Matériel médical: 300 EUR
+
+CALCULE le total exact et écris-le en chiffres ET en lettres.
+
 SORTIE FINALE
 La sortie doit être :
-Un document complet
+Un document complet avec TOUS les prix remplis
 Immédiatement exploitable
 Conforme à un usage professionnel international`,
       },

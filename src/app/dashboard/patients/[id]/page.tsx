@@ -341,56 +341,124 @@ export default function PatientProfilePage({
         description: "La facture a été téléchargée en format texte",
       });
     } else if (format === 'pdf') {
-      // Dynamic import for PDF generation
-      const { jsPDF } = await import('jspdf');
-      
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 20;
-      const maxWidth = pageWidth - (margin * 2);
-      
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('FACTURE PROFORMA', pageWidth / 2, 25, { align: 'center' });
-      
-      // Content
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      
-      const lines = doc.splitTextToSize(currentInvoice, maxWidth);
-      let yPosition = 40;
-      const lineHeight = 5;
-      
-      for (const line of lines) {
-        if (yPosition > 280) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        
-        // Check if line is a section header (all caps)
-        if (line === line.toUpperCase() && line.trim().length > 0 && !line.includes(':')) {
-          doc.setFont('helvetica', 'bold');
-          yPosition += 3;
-        } else {
-          doc.setFont('helvetica', 'normal');
-        }
-        
-        doc.text(line, margin, yPosition);
-        yPosition += lineHeight;
+      await generatePDFFromInvoice(currentInvoice, patient.patientCode);
+    }
+  };
+
+  const generatePDFFromInvoice = async (invoiceText: string, patientCode: string) => {
+    const { jsPDF } = await import('jspdf');
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - (margin * 2);
+    
+    // Header background
+    doc.setFillColor(20, 184, 166); // Teal color
+    doc.rect(0, 0, pageWidth, 35, 'F');
+    
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INAYA', margin, 18);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Gestion Médicale Internationale', margin, 26);
+    
+    // Date on right
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString('fr-FR'), pageWidth - margin, 18, { align: 'right' });
+    
+    // Reset color for content
+    doc.setTextColor(0, 0, 0);
+    
+    // Content
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    const lines = doc.splitTextToSize(invoiceText, maxWidth);
+    let yPosition = 50;
+    const lineHeight = 5.5;
+    
+    for (const line of lines) {
+      if (yPosition > 275) {
+        doc.addPage();
+        yPosition = 25;
       }
       
-      // Footer
+      // Check if line is a section header (all caps and not containing numbers/special pricing)
+      const isHeader = line === line.toUpperCase() && 
+                       line.trim().length > 0 && 
+                       !line.includes(':') && 
+                       !line.includes('EUR') &&
+                       line.trim().length < 50;
+      
+      if (isHeader) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFillColor(240, 240, 240);
+        doc.rect(margin - 2, yPosition - 4, maxWidth + 4, 7, 'F');
+        yPosition += 2;
+      } else {
+        doc.setFont('helvetica', 'normal');
+      }
+      
+      doc.text(line, margin, yPosition);
+      yPosition += lineHeight;
+    }
+    
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(128);
-      doc.text('Document généré par INAYA - Gestion Médicale', pageWidth / 2, 290, { align: 'center' });
-      
-      doc.save(`Facture_${patient.patientCode}_${new Date().toISOString().split('T')[0]}.pdf`);
-      
-      toast({
-        title: "Téléchargé !",
-        description: "La facture a été téléchargée en format PDF",
+      doc.text(`Document généré par INAYA - Page ${i}/${pageCount}`, pageWidth / 2, 290, { align: 'center' });
+    }
+    
+    doc.save(`Facture_INAYA_${patientCode}_${new Date().toISOString().split('T')[0]}.pdf`);
+    
+    toast({
+      title: "Téléchargé !",
+      description: "La facture PDF a été téléchargée",
+    });
+  };
+
+  const handleGenerateAndDownloadPDF = async (caseId: string) => {
+    if (!patient) return;
+    
+    setGeneratingInvoice(caseId);
+    try {
+      const res = await fetch("/api/ai/invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId,
+          ...invoiceSettings,
+        }),
       });
+
+      const result = await res.json();
+
+      if (result.success) {
+        // Directly download PDF without showing modal
+        await generatePDFFromInvoice(result.invoice, patient.patientCode);
+      } else {
+        toast({
+          title: "Erreur",
+          description: result.error || "Impossible de générer la facture",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Invoice generation error:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la génération",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingInvoice(null);
     }
   };
 
@@ -687,22 +755,40 @@ export default function PatientProfilePage({
                                     {caseItem.aiPreAnalysis}
                                   </div>
                                 </div>
-                                {/* Invoice Generation Button */}
+                                {/* Invoice Generation Buttons */}
                                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                                   <Button
                                     onClick={() => handleGenerateInvoice(caseItem.id)}
                                     disabled={generatingInvoice === caseItem.id}
-                                    className="gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                                    variant="outline"
+                                    className="gap-2"
                                   >
                                     {generatingInvoice === caseItem.id ? (
                                       <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        Génération en cours...
+                                        Génération...
                                       </>
                                     ) : (
                                       <>
                                         <Receipt className="w-4 h-4" />
-                                        Générer Facture Proforma
+                                        Aperçu Facture
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleGenerateAndDownloadPDF(caseItem.id)}
+                                    disabled={generatingInvoice === caseItem.id}
+                                    className="gap-2 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+                                  >
+                                    {generatingInvoice === caseItem.id ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Génération...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download className="w-4 h-4" />
+                                        Télécharger PDF
                                       </>
                                     )}
                                   </Button>
